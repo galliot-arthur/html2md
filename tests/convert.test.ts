@@ -59,7 +59,7 @@ describe("htmlToMarkdown", () => {
     expect(md).toContain("Child");
   });
 
-  it("converts tables", () => {
+  it("converts tables to GFM format", () => {
     const html = `<html><body>
       <table>
         <thead><tr><th>Name</th><th>Age</th></tr></thead>
@@ -67,10 +67,9 @@ describe("htmlToMarkdown", () => {
       </table>
     </body></html>`;
     const md = htmlToMarkdown(html);
-    expect(md).toContain("Name");
-    expect(md).toContain("Age");
-    expect(md).toContain("Alice");
-    expect(md).toContain("30");
+    expect(md).toContain("| Name | Age |");
+    expect(md).toContain("| --- | --- |");
+    expect(md).toContain("| Alice | 30 |");
   });
 
   it("converts tables with nested elements", () => {
@@ -81,7 +80,25 @@ describe("htmlToMarkdown", () => {
       </table>
     </body></html>`;
     const md = htmlToMarkdown(html);
-    expect(md).toContain("[Click](https://example.com)");
+    expect(md).toContain("| [Click](https://example.com) |");
+  });
+
+  it("normalizes tables without thead (Confluence-style)", () => {
+    const html = `<html><body>
+      <table>
+        <colgroup><col><col></colgroup>
+        <tbody>
+          <tr><th>Field</th><th>Type</th></tr>
+          <tr><td>name</td><td>String</td></tr>
+          <tr><td>age</td><td>Integer</td></tr>
+        </tbody>
+      </table>
+    </body></html>`;
+    const md = htmlToMarkdown(html);
+    expect(md).toContain("| Field | Type |");
+    expect(md).toContain("| --- | --- |");
+    expect(md).toContain("| name | String |");
+    expect(md).toContain("| age | Integer |");
   });
 
   it("strips noise elements", () => {
@@ -112,6 +129,91 @@ describe("htmlToMarkdown", () => {
       <main><p>Main content</p></main>
     </body></html>`;
     expect(htmlToMarkdown(html)).toBe("Main content");
+  });
+
+  it("extracts code blocks from table cells into separate blocks after the table", () => {
+    const html = `<html><body>
+      <table>
+        <thead><tr><th>Field</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>name</td>
+            <td>
+              <table data-macro-name="code" data-macro-parameters="language=json">
+                <tbody><tr><td class="wysiwyg-macro-body"><pre>{ "key": "value" }</pre></td></tr></tbody>
+              </table>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </body></html>`;
+    const md = htmlToMarkdown(html);
+    expect(md).toContain("| Field | Example |");
+    expect(md).toContain("| --- | --- |");
+    expect(md).toContain("| name |");
+    expect(md).toContain('```json\n{ "key": "value" }\n```');
+  });
+
+  it("cleans residual wrapper elements from cells after code block extraction", () => {
+    const html = `<html><body>
+      <table>
+        <thead><tr><th>Field</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>name</td>
+            <td rowspan="2">
+              <div class="content-wrapper">
+                <table data-macro-name="code" data-macro-parameters="language=json">
+                  <tbody><tr><td class="wysiwyg-macro-body"><pre>{ "key": "value" }</pre></td></tr></tbody>
+                </table>
+                <p><br></p>
+              </div>
+            </td>
+          </tr>
+          <tr><td>age</td></tr>
+        </tbody>
+      </table>
+    </body></html>`;
+    const md = htmlToMarkdown(html);
+    const tableLines = md.split("\n").filter((l) => l.startsWith("|"));
+    for (const line of tableLines) {
+      expect(line).not.toMatch(/<br>/);
+    }
+    expect(md).toContain("| name |");
+    expect(md).toContain("| age |");
+    expect(md).toContain('```json\n{ "key": "value" }\n```');
+  });
+
+  it("extracts multiple code blocks from a single table cell with rowspan", () => {
+    const html = `<html><body>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>data</td>
+            <td>Object</td>
+            <td rowspan="2">
+              <table data-macro-name="code" data-macro-parameters="language=json">
+                <tbody><tr><td class="wysiwyg-macro-body"><pre>{ "a": 1 }</pre></td></tr></tbody>
+              </table>
+              <table data-macro-name="code" data-macro-parameters="language=json">
+                <tbody><tr><td class="wysiwyg-macro-body"><pre>{ "b": 2 }</pre></td></tr></tbody>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td>data.id</td>
+            <td>String</td>
+          </tr>
+        </tbody>
+      </table>
+    </body></html>`;
+    const md = htmlToMarkdown(html);
+    expect(md).toContain("| Field | Type | Example |");
+    expect(md).toContain("| data | Object |");
+    expect(md).toContain("| data.id | String |");
+    expect(md).toContain('```json\n{ "a": 1 }\n```');
+    expect(md).toContain('```json\n{ "b": 2 }\n```');
   });
 
   it("handles a realistic saved HTML page", () => {
