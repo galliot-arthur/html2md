@@ -1,11 +1,11 @@
 import tseslint from "@typescript-eslint/eslint-plugin";
-import tsparser from "@typescript-eslint/parser";
+import tsParser from "@typescript-eslint/parser";
 
 export default [
   {
     files: ["src/**/*.ts", "tests/**/*.ts"],
     languageOptions: {
-      parser: tsparser,
+      parser: tsParser,
       parserOptions: {
         ecmaVersion: "latest",
         sourceType: "module",

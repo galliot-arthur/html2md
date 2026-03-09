@@ -1,4 +1,4 @@
-# html2md
+# html2md ⚙️
 
 A CLI tool that converts HTML files (e.g. saved from a browser) into clean, readable Markdown.
 
@@ -20,16 +20,10 @@ pnpm install
 
 ## Usage
 
-Convert an HTML file to Markdown (writes a `.md` file alongside the original):
+Convert every HTML files to Markdown in the `input` repository (writes a `output/*.md` file alongside the original):
 
 ```bash
-pnpm start page.html
-```
-
-Output to stdout instead:
-
-```bash
-pnpm start page.html --stdout
+pnpm start 
 ```
 
 ## Scripts
