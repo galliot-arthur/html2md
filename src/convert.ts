@@ -47,9 +47,8 @@ function removeConfluenceMacroImages(root: Element): void {
 
 function cleanHeadings(root: Element): void {
   for (const h of root.querySelectorAll("h1, h2, h3, h4, h5, h6")) {
-    // Remove leading/trailing <br> inside headings
-    while (h.firstElementChild?.tagName === "BR") h.firstElementChild.remove();
-    while (h.lastElementChild?.tagName === "BR") h.lastElementChild.remove();
+    // Remove all <br> inside headings, including those nested in strong/u/etc.
+    for (const br of [...h.querySelectorAll("br")]) br.remove();
     // Remove empty headings
     if (!h.textContent?.trim()) h.remove();
   }
@@ -98,6 +97,11 @@ function flattenTableCells(root: Element, document: Document): void {
       if (i > 0) fragment.appendChild(document.createTextNode(BR_PLACEHOLDER));
       while (p.firstChild) fragment.appendChild(p.firstChild);
       p.replaceWith(fragment);
+    }
+    // Unwrap <div> block containers so Turndown doesn't emit newlines inside rows
+    for (const div of [...cell.querySelectorAll("div")]) {
+      while (div.firstChild) div.parentNode?.insertBefore(div.firstChild, div);
+      div.remove();
     }
   }
 }
