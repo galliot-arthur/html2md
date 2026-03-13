@@ -216,6 +216,68 @@ describe("htmlToMarkdown", () => {
     expect(md).toContain('```json\n{ "b": 2 }\n```');
   });
 
+  it("unwraps div.content-wrapper inside table cells so rows stay on one line", () => {
+    const html = `<html><body>
+      <table>
+        <thead><tr><th>Status</th><th>Code</th><th>Date</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div class="content-wrapper"><p><strong>check mark button</strong></p></div></td>
+            <td><p><strong>SLS-056</strong></p></td>
+            <td><div class="content-wrapper"><p>03 Jun 2024</p></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </body></html>`;
+    const md = htmlToMarkdown(html);
+    const tableLines = md.split("\n").filter((l) => l.startsWith("|"));
+    // Row must be a single line — no embedded newlines
+    const dataRow = tableLines.find((l) => l.includes("check mark button"));
+    expect(dataRow).toBeDefined();
+    expect(dataRow).toContain("| **check mark button** |");
+    expect(dataRow).toContain("| **SLS-056** |");
+    expect(dataRow).toContain("| 03 Jun 2024 |");
+  });
+
+  it("removes <br> nested inside heading elements (strong, u, etc.)", () => {
+    const html = `<html><body>
+      <h1>Title<br><br></h1>
+      <h3><u><strong>Section Header<br><br></strong></u></h3>
+    </body></html>`;
+    const md = htmlToMarkdown(html);
+    // Headings should render as clean single lines without trailing whitespace from <br>
+    expect(md).toContain("# Title");
+    expect(md).toContain("### **Section Header**");
+    // The heading lines themselves must not have trailing spaces or inline breaks
+    const lines = md.split("\n");
+    const h1Line = lines.find((l) => l.startsWith("# "));
+    const h3Line = lines.find((l) => l.startsWith("### "));
+    expect(h1Line?.trimEnd()).toBe("# Title");
+    expect(h3Line?.trimEnd()).toBe("### **Section Header**");
+  });
+
+  it("replaces <br> inside table cells with <br> markers without breaking row structure", () => {
+    const html = `<html><body>
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>id</td>
+            <td>string<br><br>(path param)</td>
+            <td>The resource identifier</td>
+          </tr>
+        </tbody>
+      </table>
+    </body></html>`;
+    const md = htmlToMarkdown(html);
+    const tableLines = md.split("\n").filter((l) => l.startsWith("|"));
+    // The data row must be a single line (no embedded newlines)
+    const dataRow = tableLines.find((l) => l.includes("| id |"));
+    expect(dataRow).toBeDefined();
+    expect(dataRow).toContain("string");
+    expect(dataRow).toContain("path param");
+  });
+
   it("handles a realistic saved HTML page", () => {
     const html = `<!DOCTYPE html>
 <html lang="en">
